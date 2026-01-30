@@ -6,15 +6,24 @@ Build command:
     pyinstaller LocalDBViewer.spec --clean --noconfirm
 """
 
+import os
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
 
-# Resource files
-added_files = [
+# Resource files - only include directories that exist and have content
+added_files = []
+resource_dirs = [
     ('resources/styles', 'resources/styles'),
     ('resources/icons', 'resources/icons'),
 ]
+
+for src, dst in resource_dirs:
+    if os.path.exists(src) and os.listdir(src):
+        # Filter out hidden files like .gitkeep
+        files = [f for f in os.listdir(src) if not f.startswith('.')]
+        if files:
+            added_files.append((src, dst))
 
 # Collect PySide6 data
 pyside6_data = collect_data_files('PySide6')
