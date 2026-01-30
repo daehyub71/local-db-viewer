@@ -1,0 +1,79 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # 수동 실행 허용
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build EXE with PyInstaller
+        run: |
+          python -m PyInstaller --clean --noconfirm LocalDBViewer.spec
+
+      - name: Create portable package
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/LocalDBViewer_Portable
+          Copy-Item dist/LocalDBViewer.exe dist/LocalDBViewer_Portable/
+          New-Item -ItemType Directory -Force -Path dist/LocalDBViewer_Portable/data
+          New-Item -ItemType Directory -Force -Path dist/LocalDBViewer_Portable/logs
+          @"
+          Local DB Viewer - Portable Edition
+          ===================================
+
+          A desktop application for viewing local database files.
+
+          Supported Formats:
+          - SQLite (.db, .sqlite, .sqlite3)
+
+          Usage:
+          1. Double-click LocalDBViewer.exe to start
+          2. Click "Open Database" to select a database file
+          3. Browse tables, view data, and execute SQL queries
+
+          Directories:
+          - data/   - Query history database
+          - logs/   - Application logs
+
+          Version: 1.0.0
+          "@ | Out-File -FilePath dist/LocalDBViewer_Portable/README.txt -Encoding utf8
+        shell: pwsh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalDBViewer-Windows-x64
+          path: dist/LocalDBViewer_Portable/
+          retention-days: 30
+
+      - name: Create Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/LocalDBViewer_Portable/LocalDBViewer.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
